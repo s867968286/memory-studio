@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>memory-studio · 记忆管理</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body data-view="three">
+
+<header class="topbar">
+  <div class="brand">
+    <span class="dot"></span>
+    <strong>memory-studio</strong>
+    <span id="rootPath" class="root-path mono" title="数据目录"></span>
+  </div>
+
+  <!-- 记忆 / 日记 视图切换 -->
+  <div class="modes" role="tablist" aria-label="查看对象">
+    <button class="mode-tab active" data-mode="memory" role="tab">记忆</button>
+    <button class="mode-tab" data-mode="journal" role="tab">日记</button>
+  </div>
+
+  <div class="tools">
+    <!-- 搜索框内嵌范围切换 -->
+    <div class="searchbox">
+      <svg class="search-icon" viewBox="0 0 20 20" aria-hidden="true">
+        <circle cx="8.5" cy="8.5" r="5.5"></circle>
+        <line x1="12.8" y1="12.8" x2="17" y2="17"></line>
+      </svg>
+      <input id="search" type="search" placeholder="搜索记忆…" autocomplete="off">
+      <button id="scopeToggle" class="range-btn" title="切换搜索范围">当前作用域</button>
+    </div>
+    <button id="btnIndexTools" class="btn" title="整理索引 / 收录未索引文件">索引维护</button>
+    <button id="btnNewScope" class="btn">+ 工作区</button>
+    <button id="btnNew" class="btn primary">+ 新建</button>
+
+    <!-- 布局切换：图标按钮 + 下拉菜单 -->
+    <div class="layout-switch">
+      <button id="btnLayout" class="icon-btn layout-btn" title="布局">
+        <svg class="lt-icon" viewBox="0 0 20 20" aria-hidden="true">
+          <rect x="1.5" y="3" width="4.5" height="14" rx="1"></rect>
+          <rect x="7.75" y="3" width="4.5" height="14" rx="1"></rect>
+          <rect x="14" y="3" width="4.5" height="14" rx="1"></rect>
+        </svg>
+      </button>
+      <div id="layoutMenu" class="menu hidden">
+        <button class="menu-item" data-view="three">
+          <span class="mi-icon">
+            <svg viewBox="0 0 20 20"><rect x="1" y="2" width="5" height="16" rx="1.2"></rect><rect x="7.5" y="2" width="5" height="16" rx="1.2"></rect><rect x="14" y="2" width="5" height="16" rx="1.2"></rect></svg>
+          </span>
+          <span class="mi-text"><span class="mi-title">三栏</span><span class="mi-desc">作用域 / 列表 / 内容</span></span>
+          <span class="mi-check"></span>
+        </button>
+        <button class="menu-item" data-view="preview">
+          <span class="mi-icon">
+            <svg viewBox="0 0 20 20"><rect x="2" y="2" width="6.5" height="16" rx="1.2"></rect><rect x="10" y="2" width="8" height="16" rx="1.2"></rect></svg>
+          </span>
+          <span class="mi-text"><span class="mi-title">列表 + 预览</span><span class="mi-desc">隐藏作用域栏</span></span>
+          <span class="mi-check"></span>
+        </button>
+        <button class="menu-item" data-view="list">
+          <span class="mi-icon">
+            <svg viewBox="0 0 20 20"><rect x="3" y="2" width="14" height="16" rx="1.2"></rect></svg>
+          </span>
+          <span class="mi-text"><span class="mi-title">仅列表</span><span class="mi-desc">点开才显示内容</span></span>
+          <span class="mi-check"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="layout">
+  <!-- A：作用域栏（邮件客户端的文件夹列表） -->
+  <aside class="pane nav" id="paneNav">
+    <div class="pane-head">
+      <span>作用域</span>
+      <span id="scopeCount" class="muted"></span>
+    </div>
+    <div id="scopes" class="scopes"></div>
+  </aside>
+
+  <div class="gutter gutter-nav" data-gutter="nav" title="拖动调整宽度，双击复位"></div>
+
+  <!-- B：条目列表（邮件客户端的主题列表） -->
+  <section class="pane listpane" id="paneList">
+    <!-- ---- 日记模式：日期轴 ---- -->
+    <div id="journalListHead" class="pane-head list-head hidden">
+      <span class="list-title-wrap">
+        <span>日记</span>
+        <span id="journalMeta" class="list-meta"></span>
+      </span>
+      <span class="filters">
+        <button class="chip active" data-jrange="all">全部</button>
+        <button class="chip" data-jrange="week">本周</button>
+        <button class="chip" data-jrange="month">本月</button>
+      </span>
+    </div>
+    <div id="journalList" class="list hidden"></div>
+
+    <!-- ---- 记忆模式 ---- -->
+    <div class="pane-head list-head" id="memoryListHead">
+      <span class="list-title-wrap">
+        <span id="listTitle">条目</span>
+        <span id="listMeta" class="list-meta"></span>
+      </span>
+      <span class="filters">
+        <button class="chip active" data-filter="all">全部</button>
+        <button class="chip" data-filter="unindexed">未索引</button>
+        <button class="chip" id="btnBatchMode" title="进入批量选择">批量</button>
+      </span>
+    </div>
+    <div id="batchBar" class="batch-bar hidden">
+      <span id="batchInfo">已选 0 项</span>
+      <span class="batch-actions">
+        <button class="btn small" data-batch="index">收录</button>
+        <button class="btn small" data-batch="unindex">移出</button>
+        <button class="btn small" data-batch="move">移动</button>
+        <button class="btn small danger" data-batch="delete">删除</button>
+        <button class="btn small ghost" data-batch="cancel">取消</button>
+      </span>
+    </div>
+    <div id="list" class="list"></div>
+  </section>
+
+  <div class="gutter gutter-list" data-gutter="list" title="拖动调整宽度，双击复位"></div>
+
+  <!-- C：内容（邮件正文） -->
+  <section class="pane detail" id="paneDetail">
+    <div id="empty" class="empty">
+      <p>从列表中选择一个条目</p>
+      <p class="muted small">或按 <kbd>Ctrl</kbd>+<kbd>K</kbd> 聚焦搜索</p>
+    </div>
+
+    <div id="view" class="hidden">
+      <div class="detail-toolbar">
+        <button id="btnBack" class="icon-btn" title="返回列表">←</button>
+        <span class="tb-spacer"></span>
+        <button id="btnIndexToggle" class="btn small">移出索引</button>
+        <button id="btnMove" class="btn small">移动到…</button>
+        <button id="btnEdit" class="btn small">编辑</button>
+        <button id="btnDelete" class="btn small danger">删除</button>
+      </div>
+      <div class="detail-body">
+        <div class="detail-head">
+          <h1 id="eName"></h1>
+          <div class="meta-line">
+            <span id="eType" class="badge"></span>
+            <span id="eUnindexed" class="badge unindexed hidden">未索引</span>
+            <span id="eScope" class="muted small"></span>
+            <span id="eFile" class="muted small mono"></span>
+          </div>
+          <p id="eDesc" class="desc"></p>
+        </div>
+        <div id="eBody" class="markdown"></div>
+      </div>
+    </div>
+
+    <div id="journalView" class="hidden">
+      <div class="detail-toolbar">
+        <button id="btnJournalBack" class="icon-btn" title="返回日期列表">←</button>
+        <span class="tb-spacer"></span>
+        <button id="btnJournalPrev" class="btn small" title="前一天">↑ 上一天</button>
+        <button id="btnJournalNext" class="btn small" title="后一天">↓ 下一天</button>
+        <button id="btnJournalCopy" class="btn small">复制当天</button>
+      </div>
+      <div class="detail-body">
+        <div class="detail-head">
+          <h1 id="jTitle"></h1>
+          <div class="meta-line">
+            <span id="jMeta" class="muted small"></span>
+            <span id="jFile" class="muted small mono"></span>
+          </div>
+        </div>
+        <div id="jBody" class="markdown journal-raw"></div>
+      </div>
+    </div>
+
+    <div id="editor" class="hidden">
+      <div class="detail-toolbar">
+        <button id="btnCancel" class="icon-btn" title="返回">←</button>
+        <span class="tb-spacer"></span>
+        <span id="saveHint" class="muted small"></span>
+        <button id="btnSave" class="btn small primary">保存</button>
+      </div>
+      <div class="detail-body">
+        <h2 id="editorTitle">编辑条目</h2>
+        <div class="form">
+          <label>标题 name<input id="fName" type="text"></label>
+          <label>描述 description<input id="fDesc" type="text"></label>
+          <label>类型 type
+            <select id="fType">
+              <option value="user">user — 用户是谁</option>
+              <option value="feedback">feedback — 该怎样做事</option>
+              <option value="project">project — 工作区事实</option>
+              <option value="reference">reference — 外部指针</option>
+            </select>
+          </label>
+          <label class="grow">正文 body<textarea id="fBody" spellcheck="false"></textarea></label>
+          <label class="chk" id="fIndexedWrap"><input id="fIndexed" type="checkbox" checked> 写入索引（MEMORY.md）</label>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="toast" class="toast hidden"></div>
+<div id="modalRoot"></div>
+<script src="/app.js"></script>
+</body>
+</html>

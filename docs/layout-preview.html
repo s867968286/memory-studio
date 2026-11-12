@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>布局原型对比 · memory-studio</title>
+<style>
+:root{
+  --bg:#f7f8fa; --panel:#fff; --panel2:#f0f2f5; --bd:#e3e6eb; --bd2:#d0d5dd;
+  --tx:#1f2328; --mut:#6b7280; --ac:#2563eb; --acsoft:#eef3ff; --acbd:#c7d7fe;
+  --danger:#d92d20; --ok:#067647; --warn:#b54708;
+  --sh:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.1);
+  --shl:0 12px 32px rgba(16,24,40,.16);
+}
+*{box-sizing:border-box}
+body{margin:0;background:#eef0f4;color:var(--tx);
+  font:13px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif}
+.page{max-width:1500px;margin:0 auto;padding:18px 20px 60px}
+
+h1{font-size:18px;margin:0 0 4px}
+.lead{color:var(--mut);font-size:13px;margin:0 0 16px}
+
+.tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.tab{padding:7px 15px;border:1px solid var(--bd2);background:#fff;border-radius:8px;
+  cursor:pointer;font-size:13px;color:var(--tx);box-shadow:var(--sh)}
+.tab:hover{background:var(--panel2)}
+.tab.on{background:var(--ac);border-color:var(--ac);color:#fff}
+
+.view{display:none}
+.view.on{display:block}
+
+.note{background:#fff;border:1px solid var(--bd);border-left:3px solid var(--ac);
+  border-radius:8px;padding:10px 14px;margin:0 0 14px;font-size:12.5px;color:#374151}
+.note b{color:var(--tx)}
+.note ul{margin:6px 0 0;padding-left:18px}
+.note li{margin:2px 0}
+
+/* ===== 通用外壳，模拟真实窗口 ===== */
+.frame{background:#fff;border:1px solid var(--bd2);border-radius:10px;overflow:hidden;
+  box-shadow:var(--shl);height:620px;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:8px 12px;border-bottom:1px solid var(--bd);background:#fff;flex:0 0 auto}
+.brand{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ac)}
+.tools{display:flex;gap:7px;align-items:center}
+.search{width:200px;padding:5px 10px;border:1px solid var(--bd2);border-radius:6px;
+  font-size:12px;outline:none;background:#fff;color:var(--tx)}
+.btn{padding:4px 11px;border:1px solid var(--bd2);border-radius:6px;background:#fff;
+  font-size:12px;cursor:pointer;color:var(--tx);white-space:nowrap}
+.btn.pri{background:var(--ac);border-color:var(--ac);color:#fff}
+
+/* 三栏外壳 */
+.cols{flex:1;display:grid;min-height:0}
+.col{min-height:0;overflow:hidden;display:flex;flex-direction:column;background:#fff}
+.col+.col{border-left:1px solid var(--bd)}
+.hd{padding:7px 11px;font-size:11.5px;color:var(--mut);display:flex;
+  justify-content:space-between;align-items:center;border-bottom:1px solid var(--bd);
+  background:#fbfcfd;flex:0 0 auto}
+.body{flex:1;overflow-y:auto;min-height:0}
+
+.scope{padding:6px 11px;display:flex;justify-content:space-between;gap:8px;
+  font-size:12px;border-left:3px solid transparent;cursor:pointer}
+.scope:hover{background:var(--panel2)}
+.scope.on{background:var(--acsoft);border-left-color:var(--ac);color:var(--ac)}
+.scope .n{color:var(--mut);font-size:11px}
+.scope .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.scope .u{font-size:10px;color:var(--warn)}
+
+.item{padding:7px 11px;border-bottom:1px solid #f2f4f7;border-left:3px solid transparent;cursor:pointer}
+.item:hover{background:#fafbfc}
+.item.on{background:var(--acsoft);border-left-color:var(--ac)}
+.item .t{font-size:12.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .d{font-size:11.5px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bdg{display:inline-block;font-size:10px;padding:0 6px;border-radius:20px;
+  border:1px solid var(--bd2);color:var(--mut);background:#fff}
+.bdg.fb{color:var(--ok);border-color:#abefc6;background:#ecfdf3}
+.bdg.pr{color:#175cd3;border-color:#b2ddff;background:#eff8ff}
+.bdg.un{color:var(--warn);border-color:#fedf89;background:#fffaeb}
+
+.detail{padding:16px 20px;overflow-y:auto}
+.detail h2{margin:0 0 4px;font-size:16px}
+.wire{height:8px;border-radius:4px;background:#eef0f4;margin:6px 0}
+.wire.s{width:60%}
+.wire.m{width:85%}
+
+/* 原型 A：现状（左栏双段） */
+.layout-a{grid-template-columns:300px 1fr}
+.side{display:flex;flex-direction:column;min-height:0}
+.scopes{flex:0 0 32%;overflow-y:auto;border-bottom:1px solid var(--bd);min-height:0}
+.list{flex:1;overflow-y:auto;min-height:0}
+
+/* 原型 B：三栏 */
+.layout-b{grid-template-columns:200px 300px 1fr}
+
+/* 原型 C：列表内嵌作用域分组（单栏 + 详情） */
+.layout-c{grid-template-columns:330px 1fr}
+.group-hd{padding:6px 11px;font-size:11px;color:var(--mut);background:#f7f8fa;
+  border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;
+  position:sticky;top:0;z-index:1}
+
+/* 总览视图 */
+.ov-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:12px}
+.card{border:1px solid var(--bd);border-radius:8px;padding:10px 12px;background:#fff}
+.card .k{font-size:11px;color:var(--mut)}
+.card .v{font-size:20px;font-weight:600;margin-top:2px}
+.card .v.warn{color:var(--warn)}
+.ov-list{padding:0 12px 12px}
+.ov-row{display:flex;align-items:center;gap:8px;padding:5px 0;
+  border-bottom:1px solid #f2f4f7;font-size:12px}
+.ov-row .grow{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ov-row .sc{color:var(--mut);font-size:11px}
+
+.tag{display:inline-block;font-size:10.5px;padding:1px 7px;border-radius:20px;
+  border:1px dashed var(--bd2);color:var(--mut)}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--mut);margin-top:8px}
+
+/* ===== 可折叠三栏 ===== */
+.fold-layout{
+  display:grid;
+  transition:grid-template-columns .18s ease;
+}
+.fold-layout[data-s="open"][data-l="open"][data-d="open"]{grid-template-columns:200px 300px 1fr}
+.fold-layout[data-s="closed"][data-l="open"][data-d="open"]{grid-template-columns:30px 300px 1fr}
+.fold-layout[data-s="open"][data-l="closed"][data-d="open"]{grid-template-columns:200px 30px 1fr}
+.fold-layout[data-s="open"][data-l="open"][data-d="closed"]{grid-template-columns:200px 300px 30px}
+.fold-layout[data-s="open"][data-l="closed"][data-d="closed"]{grid-template-columns:200px 30px 30px}
+.fold-layout[data-s="closed"][data-l="open"][data-d="closed"]{grid-template-columns:30px 300px 30px}
+.fold-layout[data-s="closed"][data-l="closed"][data-d="open"]{grid-template-columns:30px 30px 1fr}
+.fold-layout[data-s="closed"][data-l="closed"][data-d="closed"]{grid-template-columns:30px 30px 30px}
+
+.fcol{overflow:hidden;transition:opacity .15s}
+.fcol[hidden]{display:none}
+
+.hd-title{font-weight:500;color:#374151}
+.hd{padding:0 6px 0 11px;height:34px}
+.hd-meta{color:var(--mut);font-size:11px;margin-left:auto;padding-right:2px}
+.fold-btn{
+  border:none;background:transparent;color:var(--mut);cursor:pointer;
+  width:20px;height:20px;border-radius:5px;font-size:14px;line-height:1;
+  display:flex;align-items:center;justify-content:center;flex:0 0 auto;
+}
+.fold-btn:hover{background:var(--panel2);color:var(--tx)}
+
+/* 窄轨 */
+.rail{
+  display:none;flex-direction:column;align-items:center;gap:10px;
+  padding:8px 0;background:#fbfcfd;border-right:1px solid var(--bd);
+  cursor:pointer;user-select:none;overflow:hidden;
+}
+.rail.on{display:flex}
+.rail .rt{
+  writing-mode:vertical-rl;font-size:11px;color:var(--mut);letter-spacing:2px;
+}
+.rail:hover{background:var(--panel2)}
+.rail:hover .rt{color:var(--ac)}
+.rail-btn{
+  border:none;background:transparent;color:var(--mut);cursor:pointer;font-size:13px;
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>memory-studio 布局原型对比</h1>
+  <p class="lead">三个可选方向，点标签切换。都是静态示意，数据取自真实记忆库的规模（12 个作用域 / 428 条）。</p>
+
+  <div class="tabs">
+    <div class="tab on" data-v="a">A · 现状（左栏双段）</div>
+    <div class="tab" data-v="b">B · 三栏独立列</div>
+    <div class="tab" data-v="c">C · 单列表 + 作用域分组</div>
+    <div class="tab" data-v="d">D · 总览视图（全部记忆）</div>
+    <div class="tab" data-v="e">★ B+ · 可折叠三栏（可试用）</div>
+  </div>
+
+  <!-- ============ A ============ -->
+  <div class="view on" id="v-a">
+    <div class="note">
+      <b>现在的实现。</b>作用域和条目挤在同一个 300px 列里，作用域区被限死 32% 高度。
+      <ul>
+        <li>好处：横向最省空间，1100px 宽也够用。</li>
+        <li>问题：12 个作用域必须滚动；条目区被压得很矮；两块争夺同一列宽度。</li>
+      </ul>
+    </div>
+    <div class="frame">
+      <div class="topbar">
+        <div class="brand"><span class="dot"></span>memory-studio</div>
+        <div class="tools">
+          <input class="search" placeholder="搜索标题 / 描述 / 正文…">
+          <button class="btn">+ 工作区</button>
+          <button class="btn pri">+ 新建</button>
+        </div>
+      </div>
+      <div class="cols layout-a">
+        <div class="col side">
+          <div class="hd"><span>作用域</span><span>12 个</span></div>
+          <div class="scopes">
+            <div class="scope on"><span class="nm">全局（global）</span><span class="n">98</span></div>
+            <div class="scope"><span class="nm">tool-companion</span><span class="n">125</span></div>
+            <div class="scope"><span class="nm">tool-memory</span><span class="n">83</span></div>
+            <div class="scope"><span class="nm">workspace-ai-tool</span><span class="n">72</span></div>
+            <div class="scope"><span class="nm">project-a-service</span><span class="n">20</span></div>
+            <div class="scope" style="opacity:.55"><span class="nm">project-b</span><span class="n">13</span></div>
+            <div class="scope" style="opacity:.35"><span class="nm">…（还有 5 个，需滚动）</span></div>
+          </div>
+          <div class="hd"><span>条目</span><span>全部 98 · 未索引 9</span></div>
+          <div class="list" id="list-a"></div>
+        </div>
+        <div class="col">
+          <div class="detail">
+            <span class="bdg fb">feedback</span>
+            <h2>示例：清理前先确认</h2>
+            <div class="wire m"></div><div class="wire"></div><div class="wire s"></div>
+            <div class="wire m"></div><div class="wire"></div>
+            <div class="wire s"></div><div class="wire m"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ B ============ -->
+  <div class="view" id="v-b">
+    <div class="note">
+      <b>三栏独立列。</b>作用域独占一列，可以完整展示并加自己的搜索框。
+      <ul>
+        <li>好处：层次最清楚，三块互不挤压；作用域能显示未索引计数。</li>
+        <li>代价：横向至少 1200px 才舒服；窄屏要收起作用域列。</li>
+      </ul>
+    </div>
+    <div class="frame">
+      <div class="topbar">
+        <div class="brand"><span class="dot"></span>memory-studio</div>
+        <div class="tools">
+          <input class="search" placeholder="全局搜索…">
+          <button class="btn">+ 工作区</button>
+          <button class="btn pri">+ 新建</button>
+        </div>
+      </div>
+      <div class="cols layout-b">
+        <div class="col">
+          <div class="hd"><span>作用域</span><span>12</span></div>
+          <div class="body">
+            <div class="scope on"><span class="nm">全局（global）</span><span class="n">98 <span class="u">9</span></span></div>
+            <div class="scope"><span class="nm">tool-companion</span><span class="n">125</span></div>
+            <div class="scope"><span class="nm">tool-memory</span><span class="n">83</span></div>
+            <div class="scope"><span class="nm">workspace-ai-tool</span><span class="n">72</span></div>
+            <div class="scope"><span class="nm">project-a-service</span><span class="n">20</span></div>
+            <div class="scope"><span class="nm">project-b</span><span class="n">13</span></div>
+            <div class="scope"><span class="nm">commons-lib</span><span class="n">6</span></div>
+            <div class="scope"><span class="nm">proj-2024-12</span><span class="n">4</span></div>
+            <div class="scope"><span class="nm">legacy-merge</span><span class="n">3</span></div>
+            <div class="scope"><span class="nm">d</span><span class="n">2</span></div>
+            <div class="scope"><span class="nm">workspace-ai</span><span class="n">1</span></div>
+            <div class="scope"><span class="nm">proj-legacy</span><span class="n">1</span></div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="hd"><span>条目</span><span>未索引 9</span></div>
+          <div class="body" id="list-b"></div>
+        </div>
+        <div class="col">
+          <div class="detail">
+            <span class="bdg fb">feedback</span>
+            <h2>示例：清理前先确认</h2>
+            <div class="wire m"></div><div class="wire"></div><div class="wire s"></div>
+            <div class="wire m"></div><div class="wire"></div><div class="wire s"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ C ============ -->
+  <div class="view" id="v-c">
+    <div class="note">
+      <b>单列表 + 作用域分组。</b>不做独立作用域栏，条目按作用域分组显示，组头可折叠。
+      <ul>
+        <li>好处：横向最省；天然支持「全部记忆」浏览，滚动即跨作用域。</li>
+        <li>代价：切换作用域靠折叠，不如点选直观；组多时滚动长。</li>
+      </ul>
+    </div>
+    <div class="frame">
+      <div class="topbar">
+        <div class="brand"><span class="dot"></span>memory-studio</div>
+        <div class="tools">
+          <input class="search" placeholder="搜索全部记忆…">
+          <button class="btn">+ 工作区</button>
+          <button class="btn pri">+ 新建</button>
+        </div>
+      </div>
+      <div class="cols layout-c">
+        <div class="col">
+          <div class="hd"><span>全部记忆</span><span>428 · 未索引 9</span></div>
+          <div class="body" id="list-c"></div>
+        </div>
+        <div class="col">
+          <div class="detail">
+            <span class="bdg fb">feedback</span>
+            <h2>示例：清理前先确认</h2>
+            <div class="wire m"></div><div class="wire"></div><div class="wire s"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ D ============ -->
+  <div class="view" id="v-d">
+    <div class="note">
+      <b>总览视图。</b>可加在任一方案之上，作为「全部记忆」入口：先看规模与问题，再点进去细看。
+      <ul>
+        <li>卡片给规模感（总数 / 未索引 / 失效引用 / 重复标题）。</li>
+        <li>下面按索引状态列出需要处理的条目，点击直接跳转。</li>
+      </ul>
+    </div>
+    <div class="frame">
+      <div class="topbar">
+        <div class="brand"><span class="dot"></span>memory-studio · 全部记忆</div>
+        <div class="tools">
+          <input class="search" placeholder="搜索全部记忆…">
+          <button class="btn">按作用域</button>
+          <button class="btn">按类型</button>
+          <button class="btn pri">+ 新建</button>
+        </div>
+      </div>
+      <div class="cols" style="grid-template-columns:1fr">
+        <div class="col">
+          <div class="ov-cards">
+            <div class="card"><div class="k">全部记忆</div><div class="v">428</div></div>
+            <div class="card"><div class="k">未索引</div><div class="v warn">9</div></div>
+            <div class="card"><div class="k">失效引用</div><div class="v">0</div></div>
+            <div class="card"><div class="k">疑似重复</div><div class="v warn">3</div></div>
+          </div>
+          <div class="hd"><span>需要留意</span><span>按状态</span></div>
+          <div class="body ov-list">
+            <div class="ov-row"><span class="bdg un">未索引</span><span class="grow">示例：镜像加速配置</span><span class="sc">global</span></div>
+            <div class="ov-row"><span class="bdg un">未索引</span><span class="grow">示例：模型快照</span><span class="sc">global</span></div>
+            <div class="ov-row"><span class="bdg un">未索引</span><span class="grow">示例：本地算力边界</span><span class="sc">global</span></div>
+            <div class="ov-row"><span class="bdg un">未索引</span><span class="grow">示例：依赖库解析缺陷</span><span class="sc">project-b</span></div>
+            <div class="ov-row"><span class="tag">重复</span><span class="grow">示例：记忆写入规范</span><span class="sc">global</span></div>
+            <div class="ov-row"><span class="tag">重复</span><span class="grow">示例：记忆写入规范二</span><span class="sc">global</span></div>
+            <div class="ov-row"><span class="tag">重复</span><span class="grow">示例：作答规范</span><span class="sc">global</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ E: B+ 可折叠 ============ -->
+  <div class="view" id="v-e">
+    <div class="note">
+      <b>B 的可折叠版（推荐）。</b>三列各自可收起，实时预览可直接点列头上的 ‹ 尝试。
+      <ul>
+        <li>每列头部有收起按钮；收起后留一条窄轨，点一下展开回来。</li>
+        <li>列宽可拖动调整（示意，未实现拖拽）。</li>
+        <li>宽度不够时自动收起作用域列，详情成为主区域。</li>
+      </ul>
+    </div>
+    <div class="frame">
+      <div class="topbar">
+        <div class="brand"><span class="dot"></span>memory-studio</div>
+        <div class="tools">
+          <input class="search" placeholder="全局搜索…">
+          <button class="btn" id="foldAll">全部展开 / 收起</button>
+          <button class="btn">+ 工作区</button>
+          <button class="btn pri">+ 新建</button>
+        </div>
+      </div>
+      <div class="cols fold-layout" id="foldCols" data-s="open" data-l="open" data-d="open">
+
+        <!-- 作用域列 -->
+        <div class="col fcol" data-col="s">
+          <div class="hd">
+            <span class="hd-title">作用域</span>
+            <button class="fold-btn" data-fold="s" title="收起">‹</button>
+            <div class="hd-meta">12</div>
+          </div>
+          <div class="body fbody">
+            <div class="scope on"><span class="nm">全局（global）</span><span class="n">98 <span class="u">9</span></span></div>
+            <div class="scope"><span class="nm">tool-companion</span><span class="n">125</span></div>
+            <div class="scope"><span class="nm">tool-memory</span><span class="n">83</span></div>
+            <div class="scope"><span class="nm">workspace-ai-tool</span><span class="n">72</span></div>
+            <div class="scope"><span class="nm">project-a-service</span><span class="n">20</span></div>
+            <div class="scope"><span class="nm">project-b</span><span class="n">13</span></div>
+            <div class="scope"><span class="nm">commons-lib</span><span class="n">6</span></div>
+            <div class="scope"><span class="nm">proj-2024-12</span><span class="n">4</span></div>
+            <div class="scope"><span class="nm">legacy-merge</span><span class="n">3</span></div>
+            <div class="scope"><span class="nm">d</span><span class="n">2</span></div>
+            <div class="scope"><span class="nm">workspace-ai</span><span class="n">1</span></div>
+            <div class="scope"><span class="nm">proj-legacy</span><span class="n">1</span></div>
+          </div>
+        </div>
+
+        <!-- 条目列 -->
+        <div class="col fcol" data-col="l">
+          <div class="hd">
+            <span class="hd-title">条目</span>
+            <button class="fold-btn" data-fold="l" title="收起">‹</button>
+            <div class="hd-meta">未索引 9</div>
+          </div>
+          <div class="body fbody" id="list-e"></div>
+        </div>
+
+        <!-- 详情列 -->
+        <div class="col fcol" data-col="d">
+          <div class="hd">
+            <span class="hd-title">详情</span>
+            <button class="fold-btn" data-fold="d" title="收起">‹</button>
+            <div class="hd-meta">global</div>
+          </div>
+          <div class="body detail fbody">
+            <span class="bdg fb">feedback</span>
+            <h2>示例：清理前先确认</h2>
+            <div class="wire m"></div><div class="wire"></div><div class="wire s"></div>
+            <div class="wire m"></div><div class="wire"></div><div class="wire s"></div>
+            <div class="wire m"></div>
+          </div>
+        </div>
+
+        <!-- 窄轨（收起后出现） -->
+        <div class="rail" data-rail="s" title="展开作用域"><span class="rt">作用域</span><button class="rail-btn">›</button></div>
+        <div class="rail" data-rail="l" title="展开条目"><span class="rt">条目</span><button class="rail-btn">›</button></div>
+        <div class="rail" data-rail="d" title="展开详情"><span class="rt">详情</span><button class="rail-btn">›</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span>■ 原型仅为示意，不含真实功能</span>
+    <span>建议：先定 B 或 C，再把 D 作为顶栏入口加上去</span>
+  </div>
+</div>
+
+<script>
+const ITEMS = [
+  ['示例：清理前先确认','feedback','用户要求清空时即便看似残留也要先确认',true],
+  ['示例：以用户为准','feedback','需求真源是用户而非被讨论插件的文档',true],
+  ['示例：结论附证据','feedback','每条结论必须附真实文件行号',true],
+  ['示例：镜像加速配置','project','',false],
+  ['示例：模型快照','reference','',false],
+  ['示例：用户偏好','user','示例：开发者，要求中文回复',true],
+  ['示例：开发环境速查','project','示例：环境坐标',true],
+  ['示例：评测方法','feedback','区分适配度低与实现得糙',true],
+  ['示例：本地算力边界','user','',false],
+];
+const TYPE_BADGE = { feedback:'fb', project:'pr', reference:'', user:'' };
+
+function itemHTML(it) {
+  const [t, type, d, indexed] = it;
+  const b = TYPE_BADGE[type] !== undefined ? TYPE_BADGE[type] : '';
+  return `<div class="item${t.includes('清理') ? ' on' : ''}">
+    <div class="t">${t}</div>
+    <div class="d">${d || '—'}</div>
+    <div style="margin-top:2px">
+      <span class="bdg ${b}">${type}</span>
+      ${indexed ? '' : '<span class="bdg un">未索引</span>'}
+    </div>
+  </div>`;
+}
+
+function fill(id) {
+  const el = document.getElementById(id);
+  if (el) el.innerHTML = ITEMS.map(itemHTML).join('');
+}
+fill('list-a'); fill('list-b');
+
+// C：按作用域分组
+const listC = document.getElementById('list-c');
+const groups = [
+  ['全局（global）', 98, ITEMS.slice(0, 4)],
+  ['tool-companion', 125, ITEMS.slice(2, 4)],
+  ['project-b', 13, ITEMS.slice(5, 7)],
+];
+listC.innerHTML = groups.map(([name, n, items]) => `
+  <div class="group-hd"><span>${name}</span><span>${n} 条</span></div>
+  ${items.map(itemHTML).join('')}
+`).join('');
+
+document.querySelectorAll('.tab').forEach((tab) => {
+  tab.onclick = () => {
+    document.querySelectorAll('.tab').forEach((t) => t.classList.remove('on'));
+    document.querySelectorAll('.view').forEach((v) => v.classList.remove('on'));
+    tab.classList.add('on');
+    document.getElementById('v-' + tab.dataset.v).classList.add('on');
+  };
+});
+
+// ===== B+ 可折叠列的交互（原型演示） =====
+fill('list-e');
+const foldCols = document.getElementById('foldCols');
+
+function applyFold() {
+  ['s', 'l', 'd'].forEach((k) => {
+    const state = foldCols.dataset[k];
+    const col = foldCols.querySelector(`.fcol[data-col="${k}"]`);
+    const rail = foldCols.querySelector(`.rail[data-rail="${k}"]`);
+    const folded = state === 'closed';
+    col.hidden = folded;
+    rail.classList.toggle('on', folded);
+  });
+}
+function toggleFold(k) {
+  foldCols.dataset[k] = foldCols.dataset[k] === 'open' ? 'closed' : 'open';
+  applyFold();
+}
+
+foldCols.querySelectorAll('[data-fold]').forEach((b) => {
+  b.onclick = (e) => { e.stopPropagation(); toggleFold(b.dataset.fold); };
+});
+foldCols.querySelectorAll('.rail').forEach((r) => {
+  r.onclick = () => toggleFold(r.dataset.rail);
+});
+
+document.getElementById('foldAll').onclick = () => {
+  const keys = ['s', 'l', 'd'];
+  const allOpen = keys.every((k) => foldCols.dataset[k] === 'open');
+  keys.forEach((k) => { foldCols.dataset[k] = allOpen ? 'closed' : 'open'; });
+  applyFold();
+};
+
+// 窄屏自动收起作用域列
+function autoFold() {
+  const w = document.querySelector('#v-e .frame').clientWidth;
+  if (w < 900 && foldCols.dataset.s === 'open') {
+    foldCols.dataset.s = 'closed';
+    applyFold();
+  }
+}
+autoFold();
+window.addEventListener('resize', autoFold);
+applyFold();
+</script>
+</body>
+</html>

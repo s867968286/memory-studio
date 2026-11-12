@@ -1,0 +1,24 @@
+# 依赖（本项目零依赖，通常不存在）
+node_modules/
+
+# 日志
+*.log
+npm-debug.log*
+
+# 环境变量与密钥（防止误提交）
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+
+# 系统/编辑器文件
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+
+# 工具运行时备份目录（位于 ~/.dsh/memory-md 下，非仓库内容）
+.memory-studio-backup/
